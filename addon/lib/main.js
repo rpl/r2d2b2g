@@ -623,9 +623,17 @@ let simulator = {
     return remoteSimulator;
   },
 
+  connectRemoteDeveloperToolbox: function() {
+    console.debug("Simulator.connectRemoteDeveloperToolbox");
+    this.remoteSimulator.connectDeveloperTools();
+  },
+
   onMessage: function onMessage(message) {
     console.log("Simulator.onMessage " + message.name);
     switch (message.name) {
+      case "connectRemoteDeveloperToolbox":
+        this.connectRemoteDeveloperToolbox()
+        break;
       case "getIsRunning":
         this.worker.postMessage({ name: "isRunning",
                                   isRunning: this.isRunning });
@@ -872,6 +880,16 @@ Gcli.addCommand({
     }
   },
 });
+
+Gcli.addCommand({
+  name: "firefoxos devtools",
+  description: "Connect DevTools to Simulator",
+  params: [],
+  exec: function(args, context) {
+    simulator.connectRemoteDeveloperToolbox()
+  },
+});
+
 
 // Menuitems.Menuitem({
 //   id: "launchB2G",

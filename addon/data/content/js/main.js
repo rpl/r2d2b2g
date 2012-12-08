@@ -60,6 +60,14 @@ var Simulator = {
       }, "*");
     });
 
+    $('#simulator-devtools-connect').on('click', function(evt) {
+      evt.preventDefault();
+
+      window.postMessage({
+        name: "connectRemoteDeveloperToolbox"
+      }, "*");
+    });
+
     document.documentElement.addEventListener(
       "addon-message",
       function addonMessageListener(event) {
@@ -69,6 +77,9 @@ var Simulator = {
         }
         console.log('Addon-message: ' + message.name);
         switch (message.name) {
+          case "remoteDeveloperToolboxLog":
+          $("#simulator-devtools-log").append("\n"+message.msg+"\n");
+          break;
           case "isRunning":
             $(Simulator.toggler).prop('indeterminate', false);
             if (message.isRunning) {

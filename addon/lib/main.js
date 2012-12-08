@@ -64,6 +64,10 @@ let simulator = {
     return Prefs.get("extensions.r2d2b2g.jsconsole", false);
   },
 
+  get screenConfig() {
+    return Prefs.get("extensions.r2d2b2g.screen", "320x480");
+  },
+
   get worker() this._worker,
 
   set worker(newVal) {
@@ -580,6 +584,11 @@ let simulator = {
       key: "jsconsole",
       value: simulator.jsConsoleEnabled
     });
+    this.worker.postMessage({
+      name: "setPreference",
+      key: "screen",
+      value: simulator.screen
+    });
   },
 
   onMessage: function onMessage(message) {
@@ -779,6 +788,8 @@ function run() {
   if (simulator.jsConsoleEnabled) {
     args.push("-jsconsole");
   }
+
+  args.push("-screen", simulator.screenConfig+"!");
 
   if (simulator.defaultApp != null) {
     args.push("--runapp", simulator.apps[simulator.defaultApp].name);

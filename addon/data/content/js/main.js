@@ -49,6 +49,14 @@ var Simulator = {
       }, "*");
     });
 
+    $('#commands-preference-screen').on('change', function(evt) {
+      window.postMessage({
+        name: "setPreference",
+        key: "screen",
+        value: $(this).prop("value")
+      }, "*");
+    });
+
     $('#form-add-app').on('submit', function(evt) {
       evt.preventDefault();
 

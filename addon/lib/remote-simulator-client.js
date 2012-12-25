@@ -22,12 +22,14 @@ const profileURL = rootURI + "profile/";
 
 const PingbackServer = require("pingback-server");
 
+const { method } = require('sdk/lang/functional');
+
 // import debuggerSocketConnect and DebuggerClient
 Cu.import("resource://gre/modules/devtools/dbg-client.jsm");
 
 const RemoteSimulatorClient = Class({
   extends: EventTarget,
-
+  off: method(off),
   // create a new remote debugger connection and open remote Developer Toolbox
   // NOTE: currently this will work only on nightly
   connectDeveloperTools: function () {
@@ -38,8 +40,8 @@ const RemoteSimulatorClient = Class({
 
     let transport = debuggerSocketConnect("127.0.0.1", this.remoteDebuggerPort);
     let devtoolsClient = new DebuggerClient(transport);
-    devtoolsClient.addListener("closed", function () { 
-      console.log("DEBUGGER CLIENT: connection closed"); 
+    devtoolsClient.addListener("closed", function () {
+      console.log("DEBUGGER CLIENT: connection closed");
     });
     devtoolsClient.connect((function () {
       devtoolsClient.request({to: "root", type: "listTabs"}, (function (reply) {
@@ -132,6 +134,8 @@ const RemoteSimulatorClient = Class({
       console.debug("rsc.onClientClosed");
       this._clientConnected = false;
       this._clientConnecting = false;
+      // create remote event listeners
+      this._unsubscribeRemotePacket();
       this._remote = null;
       emit(this, "disconnected", null);
     });
@@ -259,6 +263,31 @@ const RemoteSimulatorClient = Class({
                           onResponse);
   },
 
+  // send a getInstalledApps request to the remote simulator actor
+  getInstalledApps: function(onResponse) {
+    let remote = this._remote;
+    this._subscribeRemotePacket("getInstalledAppsEvent");
+    remote.client.request({to: remote.simulator, type: "getInstalledApps"},
+                          onResponse);
+  },
+
+  // send a installApp request to the remote simulator actor
+  installApp: function(manifestURL, packaged, onResponse) {
+    let remote = this._remote;
+    this._subscribeRemotePacket("installAppEvent");
+    remote.client.request({to: remote.simulator, type: "installApp",
+                           packaged: packaged, manifestURL: manifestURL},
+                          onResponse);
+  },
+
+  // send a lockScreen request to the remote simulator actor
+  lockScreen: function(enabled, onResponse) {
+    let remote = this._remote;
+    this._subscribeRemotePacket("lockScreenEvent");
+    remote.client.request({to: remote.simulator, type: "lockScreen",
+                           enabled: enabled}, onResponse);
+  },
+
   // send a ping request to the remote simulator actor
   ping: function(onResponse) {
     let remote = this._remote;
@@ -270,14 +299,7 @@ const RemoteSimulatorClient = Class({
   _subscribeWindowManagerEvents: function(onEvent) {
     let remote = this._remote;
 
-    let handler = (function(type, packet) {
-      let unregister = onEvent(packet);
-      if (unregister) {
-        this._offRemotePacket("windowManagerEvent", handler);
-      }
-    }).bind(this);
-
-    this._onRemotePacket("windowManagerEvent", handler);
+    this._subscribeRemotePacket("windowManagerEvent");
 
     let remote = this._remote;
     remote.client.request({to: remote.simulator, type: "subscribeWindowManagerEvents"}, 
@@ -292,31 +314,50 @@ const RemoteSimulatorClient = Class({
                           function() {});
   },
 
-  /* REMOTE PACKET LISTENERS MANAGEMENT */
-
-  // add unsolicited remote packet type listener
-  _onRemotePacket: function(type, aListener) {
-    let remote = this._remote;
-    remote.client.addListener(type, aListener);
+  _onRemoteEvent: function(type, packet) {
+    emit(this, type, packet);
   },
 
-  // remove unsolicited remote packet type listener
-  _offRemotePacket: function(type, aListener) {
+  /* REMOTE PACKET LISTENERS MANAGEMENT */
+
+  // subscribe remote packet type listener
+  _subscribeRemotePacket: function(type, listener) {
+    this._subscribedEventTypes = this._subscribedEventTypes || {};
+
+    if (this._subscribedEventTypes[type] && !listener)
+      return
+
+    this._subscribedEventTypes[type] = true;
+
     let remote = this._remote;
-    remote.client.removeListener(type, aListener);
+    if (listener) {
+      remote.client.addListener(type, listener);
+    } else {
+      remote.client.addListener(type, this._onRemoteEvent.bind(this));
+    }
   },
 
   // clear unsolicited remote packet type listener
-  _unsubscribeRemotePacket: function(type) {
-    let remote = this._remote;
-    let listeners = remote.client._getListeners(type);
-    listeners.forEach(function (l) remote.client.removeListener(type, l));
-  },
+  _unsubscribeRemotePacket: function(type, listener) {
+    if (type) {
+      let remote = this._remote;
 
-  // add remote packet type listener (run only once)
-  _onceRemotePacket: function(type, aListener) {
-    let remote = this._remote;
-    remote.client.addOneTimeListener(type, aListener);
+      if (listener) {
+        remote.client.remoteListener(type, listener);
+      } else {
+        if (this._subscribedEventTypes) {
+          delete this._subscribedEventTypes[type];
+        }
+        let listeners = remote.client._getListeners(type);
+        listeners.forEach(function (l) remote.client.removeListener(type, l));
+      }
+    } else {
+      let types = Object.keys(this._subscribedEventTypes || {});
+
+      types.forEach((function(type) {
+        this._unsubscribeRemotePacket(type);
+      }).bind(this));
+    }
   },
 
   // compute current b2g filename
@@ -416,6 +457,16 @@ const RemoteSimulatorClient = Class({
     return this._pingbackServer.port;
   },
 
+  get randomFreeTCPPort() {
+    var serv = Cc['@mozilla.org/network/server-socket;1']
+      .createInstance(Ci.nsIServerSocket);
+    serv.init(-1, true, -1);
+    var found = serv.port;
+    console.log("rsc.remoteDebuggerPort: found free port ", found);
+    serv.close();
+    return found;
+  },
+
   // NOTE: find a port for remoteDebuggerPort if it's null or undefined
   get remoteDebuggerPort() {
     var port = this._foundRemoteDebuggerPort;
@@ -423,15 +474,11 @@ const RemoteSimulatorClient = Class({
     if (port) {
       return port;
     }
-     
-    var serv = Cc['@mozilla.org/network/server-socket;1']
-      .createInstance(Ci.nsIServerSocket);
-    serv.init(-1, true, -1);
-    var found = serv.port;
-    console.log("rsc.remoteDebuggerPort: found free port ", found);
-    this.remoteDebuggerPort = found;
-    serv.close();
-    return found;
+
+    port = this.randomFreeTCPPort;
+    this.remoteDebuggerPort = port;
+
+    return port;
   },
 
   // NOTE: manual set and reset allocated remoteDebuggingPort 

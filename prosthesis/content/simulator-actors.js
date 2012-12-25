@@ -67,14 +67,95 @@ SimulatorActor.prototype = {
 
     window.runAppObj = new window.AppRunner(appName);
 
-    let setReq = window.navigator.mozSettings
-      .createLock().set({'lockscreen.enabled': false});
-    setReq.onsuccess = function() {
-      window.runAppObj.doRunApp();
-    }
+    window.runAppObj.doRunApp();
+
     return {
       message: "runApp request received"
     };
+  },
+
+  onLockScreen: function(aRequest) {
+    log("simulator actor received a 'lockScreen' command");
+    let _notify = this._notify.bind(this);
+    let enabled = aRequest.enabled;
+    let window = this.simulatorWindow;
+
+    let setReq = window.navigator.mozSettings
+      .createLock().set({'lockscreen.enabled': enabled});
+    setReq.onsuccess = function() {
+      log("LOCK SUCCESS");
+      _notify('lockScreenEvent', { enabled: enabled, success: true });
+    }
+    setReq.onerror = function() {
+      log("LOCK ERROR");
+      _notify('lockScreenEvent', { enabled: enabled, success: false });
+    }
+
+    return { message: "lockScreen command received" }
+  },
+
+  onGetInstalledApps: function(aRequest) {
+    log("simulator actor received a 'getInstalledApps' command: "+JSON.stringify(aRequest));
+
+    let _notify = this._notify.bind(this);
+    let window = this.simulatorWindow;
+    let mozApps = this.simulatorWindow.navigator.mozApps;
+
+    let req = mozApps.getInstalled();
+    req.onsuccess = function() {
+      let result = req.result.map(function(app) {
+        return {
+          origin: app.origin,
+          installOrigin: app.installOrigin,
+          installTime: app.installTime,
+          updateTime: app.updateTime,
+          lastUpdateCheck: app.lastUpdateCheck,
+          manifestURL: app.manifestURL,
+          downloadSize: app.downloadSize,
+          removable: app.removable,
+          manifest: app.manifest,
+          receipts: app.receipts,
+        }
+      });
+      log("GET INSTALLED APPS SUCCESS:",JSON.stringify(result));
+      _notify('getInstalledAppsEvent', { installedApps: result, success: true });
+    }
+    req.onerror = function() {
+      log("GET INSTALLED APPS ERROR");
+      // TODO: send error
+      _notify('getInstalledAppsEvent', { message: "error "+req.error.name, error: error,
+                                         success: false });
+    }
+
+    return { message: "getInstalledApps command received" }
+  },
+
+  onInstallApp: function(aRequest) {
+    log("simulator actor received a 'installApp' command: "+JSON.stringify(aRequest));
+
+    let _notify = this._notify.bind(this);
+    let window = this.simulatorWindow;
+    let mozApps = this.simulatorWindow.navigator.mozApps;
+    let install = function (manifestURL) {
+      if(aRequest.packaged) {
+        return mozApps.installPackage(manifestURL);
+      } else {
+        return mozApps.install(manifestURL);
+      }
+    }
+
+    let req = install(aRequest.manifestURL);
+    req.onsuccess = function() {
+      log("INSTALL APP SUCCESS:",JSON.stringify(req.result));
+      _notify('installAppEvent', { origin: req.result.origin, success: true });
+    }
+    req.onerror = function() {
+      log("INSTALL APP ERROR");
+      // TODO: send error
+      _notify('installAppEvent', { message: "error installing", success: false });
+    }
+
+    return { message: "installApp command received" }
   },
 
   onSubscribeWindowManagerEvents: function (aRequest) {
@@ -155,6 +236,7 @@ SimulatorActor.prototype = {
   _notify: function(type,data) {
     data.type = type;
     data.from = this.actorID;
+    log("SENDING: "+JSON.stringify(data));
     this.conn.send(data);
   },
 
@@ -179,8 +261,11 @@ SimulatorActor.prototype.requestTypes = {
   "getBuildID": SimulatorActor.prototype.onGetBuildID,
   "logStdout": SimulatorActor.prototype.onLogStdout,
   "runApp": SimulatorActor.prototype.onRunApp,
+  "lockScreen": SimulatorActor.prototype.onLockScreen,
   "subscribeWindowManagerEvents": SimulatorActor.prototype.onSubscribeWindowManagerEvents,
   "unsubscribeWindowManagerEvents": SimulatorActor.prototype.onUnsubscribeWindowManagerEvents,
+  "getInstalledApps": SimulatorActor.prototype.onGetInstalledApps,
+  "installApp": SimulatorActor.prototype.onInstallApp,
 };
 
 DebuggerServer.removeGlobalActor(SimulatorActor);

@@ -1,8 +1,8 @@
 var Simulator = {
 
   APP_TYPES: {
-    "local": "Packaged App",
-    "generated": "Generated App",
+    "packaged": "Packaged App",
+    "hosted_generated": "Hosted Generated App",
     "hosted": "Hosted App"
   },
 
@@ -75,7 +75,7 @@ var Simulator = {
         if (!("name" in message)) {
           return;
         }
-        console.log('Addon-message: ' + message.name);
+        console.log('Addon-message: ' + message.name, JSON.stringify(message));
         switch (message.name) {
           case "getHasDeveloperToolbox":
             if (message.enabled) {
@@ -117,7 +117,7 @@ var Simulator = {
 
             var defaultPref = $("#commands-preference-default-app");
             if (defaultApp) {
-              defaultPref.text(message.list[defaultApp].name).parents('label').show();
+              defaultPref.text(message.list[defaultApp.number].name).parents('label').show();
             } else {
               defaultPref.parents('label').hide();
             }
@@ -154,26 +154,43 @@ var Simulator = {
                   );
                 note = "has been removed.";
               } else {
-                options.push(
-                  $("<a href='#'>")
-                    .addClass("button")
-                    .text("Remove")
-                    .click(function(evt) {
-                      evt.preventDefault();
-                      window.postMessage({name: "removeApp", id: id}, "*");
-                    }),
-                  $("<button>")
-                    .text("Update")
-                    .click(function(evt) {
-                      window.postMessage({name: "updateApp", id: id}, "*");
-                    })
-                    .prop("title", lastUpdate),
-                  $("<button>")
-                    .text("Run")
-                    .click(function(evt) {
-                      window.postMessage({name: "runApp", id: id}, "*");
-                    })
-                );
+                if (app.installed) {
+                  options.push(
+                    $("<a href='#'>")
+                      .addClass("button")
+                      .text("Remove")
+                      .click(function(evt) {
+                        evt.preventDefault();
+                        window.postMessage({name: "removeApp", id: id}, "*");
+                      }),
+                    $("<button>")
+                      .text("Update")
+                      .click(function(evt) {
+                        window.postMessage({name: "updateApp", id: id}, "*");
+                      })
+                      .prop("title", lastUpdate),
+                    $("<button>")
+                      .text("Run")
+                      .click(function(evt) {
+                        window.postMessage({name: "runApp", id: id}, "*");
+                      }));
+                  } else {
+                    options.push(
+                      $("<a href='#'>")
+                        .addClass("button")
+                        .text("Remove")
+                        .click(function(evt) {
+                          evt.preventDefault();
+                          window.postMessage({name: "removeApp", id: id}, "*");
+                        }),
+                      $("<button>")
+                        .text("Install")
+                        .click(function(evt) {
+                          window.postMessage({name: "installApp", id: id}, "*");
+                        })
+                        .prop("title", lastUpdate));
+                  }
+
                 // $("<label>").append(
                 //   $("<span>").text('Run by default:'),
                 //   $("<input type='checkbox'>")
@@ -206,7 +223,7 @@ var Simulator = {
                         window.postMessage({name: "revealApp", id: id}, "*");
                       }),
                     $("<span>")
-                      .text(" (" + id + ")")
+                      .text(" (" + app.revealUrl + ")")
                   )
                 );
               }

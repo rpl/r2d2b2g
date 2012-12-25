@@ -77,9 +77,13 @@ var Simulator = {
         }
         console.log('Addon-message: ' + message.name);
         switch (message.name) {
-          case "remoteDeveloperToolboxLog":
-          $("#simulator-devtools-log").append("\n"+message.msg+"\n");
-          break;
+          case "getHasDeveloperToolbox":
+            if (message.enabled) {
+                $("#go-to-devtools").css({display: "block"});
+            } else {
+                $("#go-to-devtools").css({display: "none"});
+            }
+            break;
           case "isRunning":
             $(Simulator.toggler).prop('indeterminate', false);
             if (message.isRunning) {
@@ -216,6 +220,7 @@ var Simulator = {
       false
     );
 
+    window.postMessage({ name: "getHasDeveloperToolbox" }, "*");
     window.postMessage({ name: "getIsRunning" }, "*");
     // Clears removed apps on reload
     window.postMessage({ name: "listApps", flush: true }, "*");

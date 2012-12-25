@@ -23,6 +23,14 @@ const SStorage = require("simple-storage");
 const WindowUtils = require("window/utils");
 const Gcli = require('gcli');
 
+const xulapp = require("sdk/system/xul-app");
+// NOTE: detect is developer toolbox feature can be enabled
+const HAS_DEVELOPER_TOOLBOX = xulapp.is("Firefox") && 
+  xulapp.versionInRange(xulapp.platformVersion, "20.0a1", "*");
+
+console.debug("XULAPP: ",xulapp.name,xulapp.version,xulapp.platformVersion);
+console.debug("HAS_DEVELOPER_TOOLBOX: ",HAS_DEVELOPER_TOOLBOX);
+
 const { rootURI } = require('@loader/options');
 const profileURL = rootURI + "profile/";
 
@@ -631,6 +639,19 @@ let simulator = {
   onMessage: function onMessage(message) {
     console.log("Simulator.onMessage " + message.name);
     switch (message.name) {
+      case "getHasDeveloperToolbox":
+        if (HAS_DEVELOPER_TOOLBOX) {
+          simulator.worker.postMessage({
+            name: "getHasDeveloperToolbox",
+            enabled: true
+          });
+        } else {
+          simulator.worker.postMessage({
+            name: "getHasDeveloperToolbox",
+            enabled: false
+          });
+        }
+        break;
       case "connectRemoteDeveloperToolbox":
         this.connectRemoteDeveloperToolbox()
         break;

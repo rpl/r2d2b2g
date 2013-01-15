@@ -57,6 +57,13 @@ let simulator = {
 
     this._jobScheduler = require("job-scheduler").JobScheduler({
       state: { simulator: simulator },
+      onRun: function(job) {
+        console.log("RUN ",job.description);
+        simulator.worker.postMessage({
+          name: "jobSchedulerUpdate",
+          description: job.description
+        });
+      },
       onProgress: function (data) {
         console.debug("PROGRESS", data.job.toString(), JSON.stringify(data.progress));
 
@@ -70,7 +77,14 @@ let simulator = {
         this.processQueue();
       },
       onCompleted: function() {
+        simulator.worker.postMessage({
+          name: "jobSchedulerUpdate",
+          description: null
+        });
         this.processQueue();
+      },
+      onBusy: function(job) {
+        simulator.error("Simulator is busy. try later or abort a running operation.");
       }
     });
 
@@ -84,6 +98,8 @@ let simulator = {
     let ds = this.definedJobSteps;
 
     js.enqueueJob({
+      description: "Run App",
+      failOnBusy: true,
       steps: [
         ds.Ready(),
         ds.Lockscreen({enabled: true}),
@@ -102,6 +118,8 @@ let simulator = {
     switch (app.type) {
     case "hosted":
       job = js.enqueueJob({
+        description: "Installing Hosted App",
+        failOnBusy: true,
         steps: [
           ds.Ready(),
           ds.Lockscreen({enabled: false}),
@@ -112,6 +130,8 @@ let simulator = {
       break;
     case "hosted_generated":
       job = js.enqueueJob({
+        description: "Installing Hosted Generated App",
+        failOnBusy: true,
         steps: [
           ds.NotRunning(),
           ds.InjectHostedGeneratedApp({appId: app.id, manual: true}),
@@ -122,6 +142,8 @@ let simulator = {
     case "packaged":
       try {
       job = js.enqueueJob({
+        description: "Installing Packaged App",
+        failOnBusy: true,
         completed: function (job) {
           if (job.success) {
             console.log("JOB COMPLETED");

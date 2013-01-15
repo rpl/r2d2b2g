@@ -76,6 +76,7 @@ const JobScheduler = Class({
     nsSched(job).jobId = this._generateJobId();
 
     if (jobConfig.failOnBusy && this.isBusy) {
+      emit(this, "busy", job);
       return null;
     }
 
@@ -89,7 +90,7 @@ const JobScheduler = Class({
   processQueue: function () {
     let priv = nsSched(this);
 
-    let job = priv.queue.shift();
+    let job = priv.runningJob = priv.queue.shift();
 
     if(job) {
       console.log("Processing queue: ",job.toString());
@@ -99,7 +100,9 @@ const JobScheduler = Class({
           progress: progress
         });
       }).bind(this));
+      emit(this, "run", job);
       job.run(priv.state).then((function() {
+        delete priv.runningJob;
         emit(this,"completed", job);
       }).bind(this));
     }
@@ -108,7 +111,7 @@ const JobScheduler = Class({
   get isBusy() {
     let priv = nsSched(this);
 
-    return priv.queue.length > 0;
+    return priv.queue.length > 0 || priv.runningJob;
   },
 
   _generateJobId: function(app) {
@@ -178,6 +181,11 @@ const Job = Class({
       userDeferred: d,
     });
     return d.promise;
+  },
+
+  get description() {
+    let priv = nsSched(this);
+    return priv.options.description || this.description;
   },
 
   // ### success

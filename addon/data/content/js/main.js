@@ -77,6 +77,17 @@ var Simulator = {
         }
         console.log('Addon-message: ' + message.name, JSON.stringify(message));
         switch (message.name) {
+          case "jobSchedulerUpdate":  
+            var schedulerInfoEl = $("#job-scheduler-running-job");
+            if (message.description) {
+              schedulerInfoEl.html(message.description);
+              schedulerInfoEl.parents('label').css({display: "block"});
+            }
+            else {
+              schedulerInfoEl.html("");
+              schedulerInfoEl.parents('label').css({display: "none"});
+            }
+            break;
           case "getHasDeveloperToolbox":
             if (message.enabled) {
                 $("#go-to-devtools").css({display: "block"});

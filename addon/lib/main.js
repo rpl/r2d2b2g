@@ -162,20 +162,27 @@ let simulator = {
     });
 
     this._appmanager.on("appListUpdated", (function () {
-      console.log("RECEIVED appListUpdated");
+      console.debug("RECEIVED appListUpdated");
       this.sendListApps();
     }).bind(this));
 
     this._appmanager.on("appUpdated", (function (id) {
-      console.log("RECEIVED appUpdated",id);
+      console.debug("RECEIVED appUpdated",id);
       let appName = simulator.appmanager.apps[id].name;
       simulator.runApp(appName);
     }).bind(this));
 
     this._appmanager.on("appRegistered", (function (app) {
-      console.log("RECEIVED appRegistered",app.id);
+      console.debug("RECEIVED appRegistered",app.id);
       this.installApp(app);
     }).bind(this));
+
+    this._appmanager.on("appFlushRemovedApps", function (needsRestart) {
+      console.debug("RECEIVED appFlushRemovedApps needsRestart:",needsRestart);
+      if (needsRestart) {
+        simulator.error("Injected Application Removed: restart needed.");
+      }
+    });
 
     return this._appmanager;
   },
@@ -398,8 +405,7 @@ let simulator = {
     console.log("Simulator.sendListApps");
     this.worker.postMessage({
       name: "listApps",
-      list: simulator.appmanager.apps,
-      defaultApp: simulator.appmanager.defaultApp
+      list: simulator.appmanager.apps
     });
   },
 
@@ -472,17 +478,9 @@ let simulator = {
     if (this.isRunning) {
       resolve();
     } else {
-      let appName = null;
-      if (this.appmanager.defaultApp) {
-        appName = this.appmanager.apps[this.appmanager.defaultApp].name
-        this.appmanager.defaultApp = null;
-      }
-
       this.remoteSimulator.once("ready", resolve);
       this.remoteSimulator.once("timeout", reject);
-      this.remoteSimulator.run({
-        defaultApp: appName
-      });
+      this.remoteSimulator.run();
     }
 
     return promise;
@@ -586,6 +584,7 @@ let simulator = {
         break;
       case "listApps":
         if (message.flush) {
+          console.log("Simulator will flushRemovedApps");
           this.appmanager.flushRemovedApps();
         }
         this.sendListApps();

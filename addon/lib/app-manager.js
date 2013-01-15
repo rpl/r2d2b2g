@@ -47,6 +47,10 @@ const AppManager = Class({
   //
   initialize: function initialize(options) {
     EventTarget.prototype.initialize.call(this, options);
+    this.on("appRegistered", (function(app) {
+      if (app.type == "hosted")
+        this.registerPermissions(app.id);
+    }).bind(this));
   },
 
   _generateAppId: function(app) {
@@ -232,6 +236,7 @@ const AppManager = Class({
   },
 
   registerPermissions: function (appId) {
+    console.debug("AppManager.registerPermissions", appId);
     let app = this.apps[appId];
 
     let PermissionsInstaller;
@@ -367,6 +372,8 @@ const AppManager = Class({
   },
 
   removeAppFinal: function(id) {
+    console.debug("AppManager.removeAppFinal", id);
+    let self = this;
     let apps = this.apps;
     let config = apps[id];
 
@@ -376,6 +383,7 @@ const AppManager = Class({
 
     delete apps[id];
 
+    console.debug("AppManager.removeAppFinal: unregister permissions");
     let permissions = this.permissions;
     if (permissions[config.origin]) {
       let host = config.host;
@@ -386,9 +394,11 @@ const AppManager = Class({
     }
 
     // NOTE: other app types will be removed using mozApps API
-    if (app.type !== "hosted_generated")
+    if (config.type !== "hosted_generated") {
       return;
+    }
 
+    // Remove injected hosted generated app
     let webappsDir = URL.toFilename(profileURL + "webapps");
     let webappsFile = File.join(webappsDir, "webapps.json");
     let webapps = JSON.parse(File.read(webappsFile));
@@ -416,12 +426,22 @@ const AppManager = Class({
   },
 
   flushRemovedApps: function() {
+    console.debug("AppManager.flushRemovedApps");
     let apps = this.apps;
-    for (var id in apps) {
-      if (apps[id].removed) {
-        this.removeAppFinal(id);
+    let needsRestart = false;
+    try {
+      for (var id in apps) {
+        let app = apps[id];
+        if (app.removed) {
+          if (app.type === "hosted_generated")
+            needsRestart = true;
+          this.removeAppFinal(id);
+        }
       }
+    } catch(e) {
+      console.error(e,e.fileName,e.lineNumber);
     }
+    emit(this, "appFlushRemovedApps", needsRestart);
   }
 });
 

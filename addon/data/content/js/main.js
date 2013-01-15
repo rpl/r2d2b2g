@@ -127,6 +127,18 @@ var Simulator = {
             if (!ids.length) {
               container.append('<em>No Apps added yet? Add some …</em>');
             }
+            else {
+              container.append($('<button id="listApps-flush">').
+                               text("Flush").
+                               click(function(evt) {
+                                 evt.preventDefault();
+                                 window.postMessage({
+                                   name: "listApps", 
+                                   flush: true
+                                 }, "*");
+                               }).
+                               hide());
+            }
             ids.forEach(function(id) {
               // FIXME: forEach workaround as for-in resulted in broken index
               var app = message.list[id];
@@ -143,6 +155,7 @@ var Simulator = {
               var note = Simulator.APP_TYPES[app.type];
 
               if (app.removed) {
+                $("#listApps-flush").show();
                 options.push(
                   $("<a href='#'>")
                     .addClass("button")
@@ -239,8 +252,8 @@ var Simulator = {
 
     window.postMessage({ name: "getHasDeveloperToolbox" }, "*");
     window.postMessage({ name: "getIsRunning" }, "*");
-    // Clears removed apps on reload
-    window.postMessage({ name: "listApps", flush: true }, "*");
+    // reload apps list on reload
+    window.postMessage({ name: "listApps", flush: false }, "*");
     window.postMessage({ name: "listTabs" }, "*");
     window.postMessage({ name: "getPreference" }, "*");
   },

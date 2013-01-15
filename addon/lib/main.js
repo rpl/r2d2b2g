@@ -57,6 +57,15 @@ let simulator = {
 
     this._jobScheduler = require("job-scheduler").JobScheduler({
       state: { simulator: simulator },
+      onProgress: function (data) {
+        console.debug("PROGRESS", data.job.toString(), JSON.stringify(data.progress));
+
+        if (data.progress.success == false) {
+          console.error("PROGRESS ERROR", data.progress.error, 
+                        data.progress.error.fileName,
+                        data.progress.error.lineNumber);
+        }
+      },
       onPushed: function() {
         this.processQueue();
       },
@@ -95,7 +104,7 @@ let simulator = {
       job = js.enqueueJob({
         steps: [
           ds.Ready(),
-          ds.Lockscreen({enabled: true}),
+          ds.Lockscreen({enabled: false}),
           ds.InstallApp({manifestURL: app.manifestURL}),
           ds.UpdateRegisteredAppStatus({appId: app.id, installed: true}),
         ]
@@ -111,27 +120,33 @@ let simulator = {
       });
       break;
     case "packaged":
-      job = js.enqueueJob({
+      try {
+      job = js.enqueueJob({        
+        completed: function (job) {
+          if (job.success) {
+            console.log("JOB COMPLETED");
+          } else {
+            console.error("JOB ERROR",job.error, job.error.lineNumber, job.error.fileName);
+            simulator.error(job.error);
+          }
+        },
         steps: [
           ds.MiniMarketServer({enabled: true}),
           ds.Ready(),
-          ds.Lockscreen({enabled: true}),
+          ds.Lockscreen({enabled: false}),
           ds.GeneratePackagedApp({appId: app.id}),
           ds.InstallPackagedApp(),
           ds.UpdateRegisteredAppStatus({appId: app.id, installed: true}),
         ]
       });
+      }catch(e) {
+        console.error("JOB QUEUE ERROR", e, e.fileName, e.lineNumber);
+      }
       break;
     }
 
     if (job) {
-      job.on("completed", function (data) {
-        if (data.success) {
-          console.log("JOB COMPLETED");
-        } else {
-          simulator.error(data.error);
-        }
-      });
+      
     } else {
       // TODO
     }

@@ -6,7 +6,7 @@
 'use strict';
 
 const { Class } = require("sdk/core/heritage");
-const {Job, JobStep, ComposedJobStep, JobScheduler, nsSched} = require("job-scheduler");
+const {Job, ComposedJob} = require("job-scheduler");
 
 const { ns } = require("sdk/core/namespace");
 
@@ -16,8 +16,8 @@ const { emit,off } = require("sdk/event/core");
 
 exports.Ready = Class({
   name: "Ready",
-  extends: JobStep,
-  run: function (state,deferred) {
+  extends: Job,
+  handleRun: function (state,deferred) {
     let remoteSimulator = state.simulator.remoteSimulator;
 
     // TODO: remoteSimulator connecting or exiting
@@ -29,17 +29,13 @@ exports.Ready = Class({
       remoteSimulator.once("ready", deferred.resolve);
       remoteSimulator.run();
     }
-  },
-  cleanup: function (state,deferred) {
-    // do nothing
-    deferred.resolve();
   }
 });
 
 exports.NotRunning = Class({
   name: "NotRunning",
-  extends: JobStep,
-  run: function (state,deferred) {
+  extends: Job,
+  handleRun: function (state,deferred) {
     let remoteSimulator = state.simulator.remoteSimulator;
 
     // TODO: remoteSimulator connecting or exiting
@@ -49,46 +45,42 @@ exports.NotRunning = Class({
     } else {
       deferred.resolve();
     }
-  },
-  cleanup: function (state,deferred) {
-    // do nothing
-    deferred.resolve();
   }
 });
 
-
 exports.Lockscreen = Class({
   name: "Lockscreen",
-  extends: JobStep,
+  extends: Job,
   initialize: function (options) {
+    if (!options)
+      throw Error(this.name + " initialize options are mandatory");
     this.enabled = options.enabled;
-    JobStep.prototype.initialize.call(this, options);
+    Job.prototype.initialize.call(this, options);
   },
-  run: function (state,deferred) {
+  handleRun: function (state,deferred) {
     let remoteSimulator = state.simulator.remoteSimulator;
 
     // resolve on success and fail
     remoteSimulator.once("lockScreenEvent", deferred.resolve)
-      remoteSimulator.lockScreen(false, function onResponse(packet) {
-        if (packet.success === false)
-          deferred.resolve();
-      });
-  },
-  cleanup: function (state,deferred) {
-    // do nothing
-    deferred.resolve();
+    remoteSimulator.lockScreen(this.enabled, function onResponse(packet) {
+      if (packet.success === false)
+        deferred.resolve();
+    });
   }
 });
 
 exports.RunApp = Class({
   name: "RunApp",
-  extends: JobStep,
+  extends: Job,
   initialize: function (options) {
+    if (!options)
+      throw Error(this.name + " initialize options are mandatory");
+
     this.appId = options.appId;
     this.appName = options.appName;
-    JobStep.prototype.initialize.call(this, options);
+    Job.prototype.initialize.call(this, options);
   },
-  run: function (state,deferred) {
+  handleRun: function (state,deferred) {
     let remoteSimulator = state.simulator.remoteSimulator;
     let appManager = state.simulator.appmanager;
     let appName = this.appName || appManager.apps[this.appId].name;
@@ -105,7 +97,7 @@ exports.RunApp = Class({
         deferred.reject("failed runApp cmd: "+packet.message);
     });
   },
-  cleanup: function (state,deferred) {
+  handleCancel: function (state,deferred) {
     let remoteSimulator = state.simulator.remoteSimulator;
     if (state.runAppEventListener) {
       remoteSimulator.off("windowManagerEvent", state.runAppEventListener);
@@ -118,52 +110,53 @@ exports.RunApp = Class({
 
 exports.InjectHostedGeneratedApp = Class({
   name: "InjectHostedGeneratedApp",
-  extends: JobStep,
+  extends: Job,
   initialize: function (options) {
+    if (!options)
+      throw Error(this.name + " initialize options are mandatory");
+
     this.appId = options.appId;
     this.manual = options.manual;
-    JobStep.prototype.initialize.call(this, options);
+    Job.prototype.initialize.call(this, options);
   },
-  run: function (state,deferred) {
+  handleRun: function (state,deferred) {
     let appmanager = state.simulator.appmanager;
     appmanager.once("appUpdated", deferred.resolve);
     appmanager.once("error", deferred.reject);
     appmanager.injectApp(this.appId, this.manual);
-  },
-  cleanup: function (state,deferred) {
-    // do nothing
-    deferred.resolve();
   }
 });
 
 exports.UpdateRegisteredAppStatus = Class({
   name: "UpdateRegisteredAppStatus",
-  extends: JobStep,
+  extends: Job,
   initialize: function (options) {
+    if (!options)
+      throw Error(this.name + " initialize options are mandatory");
+
     this.appId = options.appId;
     this.installed = options.installed;
-    JobStep.prototype.initialize.call(this, options);
+    Job.prototype.initialize.call(this, options);
   },
-  run: function (state,deferred) {
+  handleRun: function (state,deferred) {
     let appmanager = state.simulator.appmanager;
     appmanager.updateAppStatus(this.appId, this.installed);
-    deferred.resolve();
-  },
-  cleanup: function (state,deferred) {
-    // do nothing
     deferred.resolve();
   }
 });
 
 let InstallApp = exports.InstallApp = Class({
   name: "InstallApp",
-  extends: JobStep,
+  extends: Job,
   initialize: function (options) {
+    if (!options)
+      throw Error(this.name + " initialize options are mandatory");
+
     this.manifestURL = options.manifestURL;
     this.packaged = options.packaged;
-    JobStep.prototype.initialize.call(this, options);
+    Job.prototype.initialize.call(this, options);
   },
-  run: function (state,deferred) {
+  handleRun: function (state,deferred) {
     let remoteSimulator = state.simulator.remoteSimulator;
 
     remoteSimulator.once("installAppEvent", function (packet) {
@@ -181,43 +174,44 @@ let InstallApp = exports.InstallApp = Class({
                                    deferred.reject("failed installApp cmd: "+
                                                    packet.message);
                                });
-  },
-  cleanup: function (state,deferred) {
-    // do nothing
-    deferred.resolve();
   }
 });
 
 exports.InstallPackagedApp = Class({
   name: "InstallPackagedApp",
-  extends: JobStep,
+  extends: Job,
   initialize: function (options) {
-    JobStep.prototype.initialize.call(this, options);
+    Job.prototype.initialize.call(this, options);
   },
-  run: function (state,deferred) {
+  handleRun: function (state,deferred) {
     console.debug(this.name+": install manifestURL ", state.generatedManifestURL);
     let substep = InstallApp({manifestURL: state.generatedManifestURL, packaged: true});
-    let privateJobStepAPI = nsSched(JobStep);
     try {
-      privateJobStepAPI.run(substep,state).
-        then(deferred.resolve,deferred.reject);
+      substep.run(state).
+        then(function () {
+          if (substep.success) {
+            deferred.resolve()
+          } else {
+            deferred.reject(substep.error);
+          }
+        });
     } catch(e) {
       deferred.reject(e);
     }
-  },
-  cleanup: function (state,deferred) {
-    deferred.resolve();
   }
 });
 
 exports.GeneratePackagedApp = Class({
   name: "GeneratedPackagedApp",
-  extends: JobStep,
+  extends: Job,
   initialize: function (options) {
+    if (!options)
+      throw Error(this.name + " initialize options are mandatory");
+
     this.appId = options.appId;
-    JobStep.prototype.initialize.call(this, options);
+    Job.prototype.initialize.call(this, options);
   },
-  run: function (state, deferred) {
+  handleRun: function (state, deferred) {
     let appmanager = state.simulator.appmanager;
     let {appId} = this;
 
@@ -232,19 +226,17 @@ exports.GeneratePackagedApp = Class({
     } catch(e) {
       deferred.reject(e);
     }
-  },
-  cleanup: function (state, deferred) {
-    deferred.resolve();
   }
 });
 
 exports.MiniMarketServer = Class({
   name: "MiniMarketServer",
-  extends: JobStep,
+  extends: Job,
   initialize: function (options) {
     this.enabled = true;
+    Job.prototype.initialize.call(this, options);
   },
-  run: function (state, deferred) {
+  handleRun: function (state, deferred) {
     let appmanager = state.simulator.appmanager;
 
     if (this.enabled) {
@@ -262,8 +254,5 @@ exports.MiniMarketServer = Class({
         deferred.resolve();
       }
     }
-  },
-  cleanup: function (state, deferred) {
-    deferred.resolve();
   }
 });

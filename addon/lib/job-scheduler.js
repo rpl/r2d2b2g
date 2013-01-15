@@ -146,7 +146,7 @@ const Job = Class({
   handleCleanup: function(ctx, deferred) {
     // do nothing
     deferred.resolve();
-  },  
+  },
 
 // ## public API
   // ### run
@@ -424,7 +424,7 @@ const Job = Class({
   _goRun: function(req) {
     let priv = nsSched(this);
     priv.state = "RUN";
-    emit(this, "Job:fsm", {type: "enterRun", ctx: req.ctx, 
+    emit(this, "Job:fsm", {type: "enterRun", ctx: req.ctx,
                            autoCleanup: req.autoCleanup});
   },
   // ### goCancel
@@ -463,7 +463,7 @@ const Job = Class({
       delete priv.runningTimeout;
     }
   },
- 
+
   // ### doRun
   _doRun: function() {
     let job = this;
@@ -544,7 +544,7 @@ const Job = Class({
     priv.retries = 0;
     emit(this, "Job:fsm", {
       type: "retry"
-    });    
+    });
   },
   // ### doCleanup
   _doCleanup: function() {
@@ -610,7 +610,7 @@ const CompositeJob = Class({
       return function run(ctx) {
         debug("CompositeJob running:",step);
         // NOTE: disable autoCleanup on exit for multistep job
-        return step.run(ctx, false); 
+        return step.run(ctx, false);
       }
     });
     priv.cleanupList = priv.steps.map(function(step) {
@@ -674,7 +674,7 @@ const CompositeJob = Class({
             index: priv.currentStepIndex,
             total: priv.totalSteps,
             success: jobStep.success,
-            error: jobStep.error 
+            error: jobStep.error
           };
           emit(job, "progress", priv.progress);
 
@@ -728,7 +728,7 @@ const CompositeJob = Class({
             index: priv.currentStepIndex,
             total: priv.totalSteps,
             success: jobStep.successCleanup,
-            error: jobStep.errorCleanup 
+            error: jobStep.errorCleanup
           };
           emit(job, "cleanupProgress", priv.progress);
 
@@ -754,4 +754,3 @@ const CompositeJob = Class({
 });
 
 exports.CompositeJob = CompositeJob;
-

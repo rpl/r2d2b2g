@@ -412,7 +412,7 @@ exports["test:CompositeJob:timeoutRetries"] = function (test, done) {
   });
 
   let job1 = CompositeJob({
-    steps: [Step1({    
+    steps: [Step1({
       maxRetries: 3,
       timeout: 200,
     })]

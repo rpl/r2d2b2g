@@ -61,7 +61,7 @@ let simulator = {
         console.debug("PROGRESS", data.job.toString(), JSON.stringify(data.progress));
 
         if (data.progress.success == false) {
-          console.error("PROGRESS ERROR", data.progress.error, 
+          console.error("PROGRESS ERROR", data.progress.error,
                         data.progress.error.fileName,
                         data.progress.error.lineNumber);
         }
@@ -121,7 +121,7 @@ let simulator = {
       break;
     case "packaged":
       try {
-      job = js.enqueueJob({        
+      job = js.enqueueJob({
         completed: function (job) {
           if (job.success) {
             console.log("JOB COMPLETED");
@@ -146,7 +146,7 @@ let simulator = {
     }
 
     if (job) {
-      
+
     } else {
       // TODO
     }

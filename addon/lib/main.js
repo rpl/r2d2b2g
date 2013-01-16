@@ -58,25 +58,35 @@ let simulator = {
     this._jobScheduler = require("job-scheduler").JobScheduler({
       state: { simulator: simulator },
       onRun: function(job) {
-        console.log("RUN ",job.description);
+        console.log("RUN ",job.textDescription);
         simulator.worker.postMessage({
           name: "jobSchedulerUpdate",
-          description: job.description
+          description: job.textDescription
         });
       },
       onProgress: function (data) {
         console.debug("PROGRESS", data.job.toString(), JSON.stringify(data.progress));
-
+        
         if (data.progress.success == false) {
           console.error("PROGRESS ERROR", data.progress.error,
                         data.progress.error.fileName,
                         data.progress.error.lineNumber);
+        } else {
+          let progressText = (data.progress.index+1)+"/"+
+            (data.progress.total)+" "+data.progress.description;
+          simulator.worker.postMessage({
+            name: "jobSchedulerUpdate",
+            description: data.job.textDescription,
+            progress: progressText
+          });
         }
       },
       onPushed: function() {
         this.processQueue();
       },
-      onCompleted: function() {
+      onCompleted: function(job) {
+        if (!job.success) 
+          simulator.error(job.error);
         simulator.worker.postMessage({
           name: "jobSchedulerUpdate",
           description: null
@@ -93,13 +103,13 @@ let simulator = {
     return this._jobScheduler;
   },
 
-  runApp: function (appName) {
+  runApp: function (appName, failOnBusy) {
     let js = this.jobScheduler;
     let ds = this.definedJobSteps;
 
     js.enqueueJob({
       description: "Run App",
-      failOnBusy: true,
+      failOnBusy: typeof failOnBusy == "undefined" ? true : failOnBusy,
       steps: [
         ds.Ready(),
         ds.Lockscreen({enabled: true}),
@@ -125,6 +135,8 @@ let simulator = {
           ds.Lockscreen({enabled: false}),
           ds.InstallApp({manifestURL: app.manifestURL}),
           ds.UpdateRegisteredAppStatus({appId: app.id, installed: true}),
+          ds.Wait({ms: 1000}),
+          ds.RunApp({appId: app.id}),
         ]
       });
       break;
@@ -136,6 +148,10 @@ let simulator = {
           ds.NotRunning(),
           ds.InjectHostedGeneratedApp({appId: app.id, manual: true}),
           ds.UpdateRegisteredAppStatus({appId: app.id, installed: true}),
+          ds.Ready(),
+          ds.Lockscreen({enabled: false}),
+          ds.Wait({ms: 1000}),
+          ds.RunApp({appId: app.id}),
         ]
       });
       break;
@@ -159,6 +175,8 @@ let simulator = {
           ds.GeneratePackagedApp({appId: app.id}),
           ds.InstallPackagedApp(),
           ds.UpdateRegisteredAppStatus({appId: app.id, installed: true}),
+          ds.Wait({ms: 1000}),
+          ds.RunApp({appId: app.id}),
         ]
       });
       }catch(e) {
@@ -189,9 +207,9 @@ let simulator = {
     }).bind(this));
 
     this._appmanager.on("appUpdated", (function (id) {
-      console.debug("RECEIVED appUpdated",id);
-      let appName = simulator.appmanager.apps[id].name;
-      simulator.runApp(appName);
+      console.debug("RECEIVED appUpdated",id,simulator.jobScheduler);      
+      //let appName = simulator.appmanager.apps[id].name;
+      //simulator.runApp(appName);
     }).bind(this));
 
     this._appmanager.on("appRegistered", (function (app) {
@@ -615,6 +633,9 @@ let simulator = {
         this.kill().then(function() {
           simulator.appmanager.updateApp(message.id, true);
         });
+        break;
+      case "abortRunningJob":
+        simulator.jobScheduler.abort();
         break;
       case "runApp":
         let appName = simulator.appmanager.apps[message.id].name;

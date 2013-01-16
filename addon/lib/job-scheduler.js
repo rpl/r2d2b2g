@@ -108,6 +108,28 @@ const JobScheduler = Class({
     }
   },
 
+  abort: function () {
+    let priv = nsSched(this);
+
+    let job = priv.runningJob;
+    if (job) {
+      job.abort("User Cancelled");
+    }
+  },
+
+  toString: function() {
+    return "JobScheduler: "+this.statusText;
+  },
+
+  get statusText() {
+    let priv = nsSched(this);
+    if (priv.runningJob) {
+      return priv.runningJob.statusText;
+    } else {
+      return "No running job"
+    }
+  },
+
   get isBusy() {
     let priv = nsSched(this);
 
@@ -183,9 +205,15 @@ const Job = Class({
     return d.promise;
   },
 
-  get description() {
+  get statusText() {
     let priv = nsSched(this);
-    return priv.options.description || this.description;
+    return priv.statusText || "Unknown job status";
+  },
+
+  get textDescription() {
+    let priv = nsSched(this);
+    return (priv && priv.options && priv.options.description) || 
+      this.description || "No Description";
   },
 
   // ### success
@@ -677,13 +705,25 @@ const CompositeJob = Class({
       if (priv.currentStepIndex < priv.totalSteps) {
         let runStep = priv.runList[priv.currentStepIndex];
         let jobStep = priv.steps[priv.currentStepIndex];
+        priv.statusText = "Enter "+jobStep.textDescription;
+        priv.progress = {
+          description: priv.statusText,
+          index: priv.currentStepIndex,
+          total: priv.totalSteps,
+          success: jobStep.success,
+          error: jobStep.error
+        };          
+        emit(job, "progress", priv.progress);
+
         runStep(priv.ctx).then(function () {
+          priv.statusText = "Exit "+jobStep.textDescription;
           priv.progress = {
+            description: priv.statusText,
             index: priv.currentStepIndex,
             total: priv.totalSteps,
             success: jobStep.success,
             error: jobStep.error
-          };
+          };          
           emit(job, "progress", priv.progress);
 
           if (jobStep.success) {

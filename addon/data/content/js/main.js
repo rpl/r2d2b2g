@@ -60,6 +60,10 @@ var Simulator = {
       }, "*");
     });
 
+    $('#job-scheduler-abort-running-job').on('click', function(evt) {
+      window.postMessage({name: "abortRunningJob"}, "*");
+    });
+
     $('#simulator-devtools-connect').on('click', function(evt) {
       evt.preventDefault();
 
@@ -79,12 +83,20 @@ var Simulator = {
         switch (message.name) {
           case "jobSchedulerUpdate":  
             var schedulerInfoEl = $("#job-scheduler-running-job");
+            var schedulerProgressInfoEl = $("#job-scheduler-running-job-progress");
             if (message.description) {
               schedulerInfoEl.html(message.description);
               schedulerInfoEl.parents('label').css({display: "block"});
+
+              if (message.progress) {
+                schedulerProgressInfoEl.html(message.progress);
+              } else {
+                schedulerProgressInfoEl.html("");
+              }
             }
             else {
               schedulerInfoEl.html("");
+              schedulerProgressInfoEl.html("");
               schedulerInfoEl.parents('label').css({display: "none"});
             }
             break;

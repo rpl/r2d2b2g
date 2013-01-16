@@ -14,8 +14,34 @@ const nsSimulatorSteps = ns();
 
 const { emit,off } = require("sdk/event/core");
 
+const { setTimeout, clearTimeout } = require('sdk/timers');
+
+exports.Wait = Class({
+  name: "Wait",
+  description: "Waiting...",
+  extends: Job,
+  initialize: function (options) {
+    if (!options)
+      throw Error(this.name + " initialize options are mandatory");
+    this.ms = options.ms;
+    Job.prototype.initialize.call(this, options);
+  },
+  handleRun: function (state, deferred) {
+    this._currentTimeout = setTimeout(function () {
+      deferred.resolve();
+    },this.ms);
+  },
+  handleCancel: function (state, deferred) {
+    if (this._currentTimeout) {
+      clearTimeout(this._currenttimeout);
+      delete this._currentTimeout;
+    }
+  }
+});
+
 exports.Ready = Class({
   name: "Ready",
+  description: "Start FirefoxOS",
   extends: Job,
   handleRun: function (state,deferred) {
     let remoteSimulator = state.simulator.remoteSimulator;
@@ -34,6 +60,7 @@ exports.Ready = Class({
 
 exports.NotRunning = Class({
   name: "NotRunning",
+  description: "Stop FirefoxOS",
   extends: Job,
   handleRun: function (state,deferred) {
     let remoteSimulator = state.simulator.remoteSimulator;
@@ -50,6 +77,7 @@ exports.NotRunning = Class({
 
 exports.Lockscreen = Class({
   name: "Lockscreen",
+  description: "Lock/Unlock FirefoxOS Screen",
   extends: Job,
   initialize: function (options) {
     if (!options)
@@ -71,6 +99,7 @@ exports.Lockscreen = Class({
 
 exports.RunApp = Class({
   name: "RunApp",
+  description: "Run an App on FirefoxOS",
   extends: Job,
   initialize: function (options) {
     if (!options)
@@ -110,6 +139,7 @@ exports.RunApp = Class({
 
 exports.InjectHostedGeneratedApp = Class({
   name: "InjectHostedGeneratedApp",
+  description: "Inject a Generate Hosted App",
   extends: Job,
   initialize: function (options) {
     if (!options)
@@ -129,6 +159,7 @@ exports.InjectHostedGeneratedApp = Class({
 
 exports.UpdateRegisteredAppStatus = Class({
   name: "UpdateRegisteredAppStatus",
+  description: "Update Registered App Status",
   extends: Job,
   initialize: function (options) {
     if (!options)
@@ -148,6 +179,7 @@ exports.UpdateRegisteredAppStatus = Class({
 let InstallApp = exports.InstallApp = Class({
   name: "InstallApp",
   extends: Job,
+  description: "Install an App on  FirefoxOS",
   initialize: function (options) {
     if (!options)
       throw Error(this.name + " initialize options are mandatory");
@@ -179,6 +211,7 @@ let InstallApp = exports.InstallApp = Class({
 
 exports.InstallPackagedApp = Class({
   name: "InstallPackagedApp",
+  description: "Install a Packaged App on FirefoxOS",
   extends: Job,
   initialize: function (options) {
     Job.prototype.initialize.call(this, options);
@@ -203,6 +236,7 @@ exports.InstallPackagedApp = Class({
 
 exports.GeneratePackagedApp = Class({
   name: "GeneratedPackagedApp",
+  description: "Generate Assets for a Packaged App",
   extends: Job,
   initialize: function (options) {
     if (!options)
@@ -231,6 +265,7 @@ exports.GeneratePackagedApp = Class({
 
 exports.MiniMarketServer = Class({
   name: "MiniMarketServer",
+  description: "Start/Stop a MiniMarketServer",
   extends: Job,
   initialize: function (options) {
     this.enabled = true;

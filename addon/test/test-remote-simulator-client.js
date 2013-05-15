@@ -4,6 +4,9 @@
 
 'use strict';
 
+let { enableRDPLogging, flushRDPLogging } = require("rdp-logging");
+enableRDPLogging(true);
+
 const RemoteSimulatorClient = require("remote-simulator-client");
 
 exports["test RemoteSimulatorClient run/ping/kill"] = function(assert, done) {
@@ -31,6 +34,7 @@ exports["test RemoteSimulatorClient run/ping/kill"] = function(assert, done) {
       assert.pass("simulator exit");
       assert.ok(output.contains("simulator actor received a 'ping' command"),
                 "stdout includes debug message about 'ping' request");
+      flushRDPLogging("test-remote-simulator-client-1");
       done();
     }
   });

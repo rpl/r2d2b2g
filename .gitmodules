@@ -25,3 +25,6 @@
 [submodule "addon/packages/jsonlint"]
 	path = addon/packages/jsonlint
 	url = git://github.com/rpl/jsonlint.git
+[submodule "addon/packages/rdp-logging"]
+	path = addon/packages/rdp-logging
+	url = git://github.com/rpl/rdp-logging

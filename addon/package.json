@@ -27,5 +27,6 @@
                    "menuitems",
                    "subprocess",
                    "vold-utils",
-                   "jsonlint"]
+                   "jsonlint",
+                   "rdp-logging"]
 }

@@ -182,7 +182,11 @@ package:
 	cd addon-sdk && . bin/activate && cd ../addon && cfx xpi --templatedir template/
 
 test:
-	cd addon-sdk && . bin/activate && cd ../addon && cfx test --verbose --templatedir template/ $(BIN_ARG) $(TEST_ARG) $(PROFILE_ARG)
+	mkdir -p addon/test/RDPLOGS
+	cd addon-sdk && . bin/activate && cd ../addon && RDPLOGDIR=`pwd`/test/RDPLOGS cfx test --verbose --templatedir template/ $(BIN_ARG) $(TEST_ARG) $(PROFILE_ARG)
+
+plantuml:
+	plantuml addon/test/RDPLOGS/*.plantuml
 
 help:
 	@echo 'Targets:'

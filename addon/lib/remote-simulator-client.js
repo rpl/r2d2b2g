@@ -42,6 +42,8 @@ Subprocess.registerDebugHandler(
   function(s) console.debug("subprocess: " + s.trim())
 );
 
+const { injectRDPLoggingIfEnabled } = require("rdp-logging");
+
 const RemoteSimulatorClient = Class({
   extends: EventTarget,
   initialize: function initialize(options) {
@@ -222,8 +224,10 @@ const RemoteSimulatorClient = Class({
     this._clientConnecting = true;
 
     let transport = debuggerSocketConnect("127.0.0.1", this.remoteDebuggerPort);
-
     let client = new DebuggerClient(transport);
+
+    // NOTE: hooks transport.send and transport.hooks.onPacket (if enabled)
+    injectRDPLoggingIfEnabled(client, transport);
 
     client.addListener("closed", (function () {
       emit(this, "clientClosed", {client: client});

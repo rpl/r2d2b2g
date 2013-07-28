@@ -1,6 +1,6 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. 
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 'use strict';
@@ -79,7 +79,7 @@ const RemoteSimulatorClient = Class({
   },
 
   _hookInternalEvents: function () {
-    // on clientConnected, register an handler to close current connection 
+    // on clientConnected, register an handler to close current connection
     // on kill and send a "listTabs" debug protocol request, finally
     // emit a clientReady event on "listTabs" reply
     this.on("clientConnected", function (data) {
@@ -114,7 +114,7 @@ const RemoteSimulatorClient = Class({
         }).bind(this));
     });
 
-    // on clientClosed, untrack old remote target and emit 
+    // on clientClosed, untrack old remote target and emit
     // an high level "disconnected" event
     this.on("clientClosed", function () {
       console.debug("rsc.onClientClosed");
@@ -169,7 +169,7 @@ const RemoteSimulatorClient = Class({
           arguments: ["-e", 'tell application "' + path + '" to activate'],
         });
       }
-    });  
+    });
 
     let environment;
     if (Runtime.OS == "Linux") {
@@ -209,7 +209,7 @@ const RemoteSimulatorClient = Class({
     });
 
     this._startConnectingTime = Date.now();
-    this.connectDebuggerClient();
+    //this.connectDebuggerClient();
   },
 
   // request a b2g instance kill and optionally execute a callback on exit
@@ -221,7 +221,26 @@ const RemoteSimulatorClient = Class({
         this.once("exit", onKilled);
       this.process.kill();
     }
-  },  
+  },
+
+  connectTransport: function(transport) {
+    let client = new DebuggerClient(transport);
+
+    client.addListener("closed", (function () {
+      clearTimeout(timeout);
+      this._stopGeolocation();
+      emit(this, "clientClosed", {client: client});
+    }).bind(this));
+
+    client.addListener("geolocationStart", this.onGeolocationStart.bind(this));
+    client.addListener("geolocationStop", this.onGeolocationStop.bind(this));
+    client.addListener("appOpen", this.onAppOpen.bind(this));
+    client.addListener("appClose", this.onAppClose.bind(this));
+
+    this._registerAppUpdateRequest(client);
+
+    return client;
+  },
 
   // connect simulator using debugging protocol
   // NOTE: this control channel will be auto-created on every b2g instance run
@@ -244,20 +263,7 @@ const RemoteSimulatorClient = Class({
       client.close();
     }, 1000);
 
-    let client = new DebuggerClient(transport);
-
-    client.addListener("closed", (function () {
-      clearTimeout(timeout);
-      this._stopGeolocation();
-      emit(this, "clientClosed", {client: client});
-    }).bind(this));
-
-    client.addListener("geolocationStart", this.onGeolocationStart.bind(this));
-    client.addListener("geolocationStop", this.onGeolocationStop.bind(this));
-    client.addListener("appOpen", this.onAppOpen.bind(this));
-    client.addListener("appClose", this.onAppClose.bind(this));
-
-    this._registerAppUpdateRequest(client);
+    let client = this.connectTransport(transport);
 
     client.connect((function () {
       clearTimeout(timeout);
@@ -436,7 +442,7 @@ const RemoteSimulatorClient = Class({
     let url = Self.data.url(executables[Runtime.OS]);
     let path = URL.toFilename(url);
 
-    let executable = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);    
+    let executable = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
     executable.initWithPath(path);
     let executableFilename = executables[Runtime.OS];
 
@@ -472,13 +478,45 @@ const RemoteSimulatorClient = Class({
     let profile = URL.toFilename(PROFILE_URL);
     args.push("-profile", profile);
 
+    args.push("-rdp-connect-to", "localhost:" + this.controlClientServer.port);
+
     // NOTE: push dbgport option on the b2g-desktop commandline
     args.push("-dbgport", ""+this.remoteDebuggerPort);
-    
+
     // Ignore eventual zombie instances of b2g that are left over
     args.push("-no-remote");
 
     return args;
+  },
+
+  get controlClientServer() {
+    var remoteSimulatorClient = this;
+    var serv = this._controlClientServer;
+    if (!serv) {
+      serv = Cc['@mozilla.org/network/server-socket;1']
+        .createInstance(Ci.nsIServerSocket);
+      let flags = Ci.nsIServerSocket.KeepWhenOffline;
+
+      serv.init(-1, flags, 4);
+      serv.asyncListen({
+        onSocketAccepted: function (s, t) {
+          console.log("SOCKET ACCEPTED");
+          try {
+            let ts = new DebuggerTransport(t.openInputStream(0, 0, 0),
+                                           t.openOutputStream(0, 0, 0));
+
+            let client = remoteSimulatorClient.connectTransport(ts);
+            ts.ready();
+            client.addListener("connected", function() {
+              emit(remoteSimulatorClient, "clientConnected", {client: client});
+            });
+          } catch(e) {
+            console.log("DEBUG " + e);
+          }
+        }
+      });
+    }
+    return serv;
   },
 
   // NOTE: find a port for remoteDebuggerPort if it's null or undefined
@@ -488,7 +526,7 @@ const RemoteSimulatorClient = Class({
     if (port) {
       return port;
     }
-     
+
     var serv = Cc['@mozilla.org/network/server-socket;1']
       .createInstance(Ci.nsIServerSocket);
     serv.init(-1, true, -1);
@@ -499,7 +537,7 @@ const RemoteSimulatorClient = Class({
     return found;
   },
 
-  // NOTE: manual set and reset allocated remoteDebuggingPort 
+  // NOTE: manual set and reset allocated remoteDebuggingPort
   //       (used by process done handler)
   set remoteDebuggerPort(port) {
     this._foundRemoteDebuggerPort = port;

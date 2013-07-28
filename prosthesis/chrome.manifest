@@ -7,6 +7,8 @@ locale prosthesis en-US locale/en-US/
 # to avoid applying to xul documents.
 override chrome://browser/content/content.css chrome://prosthesis/content/b2g.css
 
+override chrome://global/content/devtools/dbg-server.js chrome://prosthesis/content/dbg-server.js
+
 overlay chrome://prosthesis/content/shell.xul chrome://prosthesis/content/shell-mac.xul os=Darwin
 overlay chrome://prosthesis/content/shell.xul chrome://prosthesis/content/shell-windows.xul os=WINNT
 overlay chrome://prosthesis/content/shell.xul chrome://prosthesis/content/shell-linux.xul os=Linux

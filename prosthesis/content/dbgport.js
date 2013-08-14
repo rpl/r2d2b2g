@@ -3,7 +3,7 @@ window.addEventListener("ContentStart", function() {
 
   // Get the command line arguments that were passed to the b2g client
   let args = window.arguments[0].QueryInterface(Ci.nsICommandLine);
-  let dbgport;
+  let dbgport, rdpConnectTo;
 
    // Get the --dbgport argument from the command line
    try {

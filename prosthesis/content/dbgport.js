@@ -3,29 +3,10 @@ window.addEventListener("ContentStart", function() {
 
   // Get the command line arguments that were passed to the b2g client
   let args = window.arguments[0].QueryInterface(Ci.nsICommandLine);
-  let dbgport, rdpConnectTo;
+  let dbgport;
 
    // Get the --dbgport argument from the command line
    try {
-     rdpConnectTo = args.handleFlagWithParam('rdp-connect-to', false);
-     // With no value, tell the user how to use it
-     if (rdpConnectTo) {
-       if (rdpConnectTo == '') {
-         usage();
-       }
-
-       rdpConnectTo = rdpConnectTo.split(":");
-
-       if (rdpConnectTo.length != 2) {
-         usage();
-       }
-
-       window.RDP_CONNECT_TO = {
-         host: rdpConnectTo[0],
-         port: rdpConnectTo[1]
-       };
-     }
-
      dbgport = args.handleFlagWithParam('dbgport', false);
 
      // With no value, tell the user how to use it

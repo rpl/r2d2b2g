@@ -13,17 +13,11 @@
     // Register our copy of styleeditor until it gets uplifted to b2g18
     DebuggerServer.addActors('chrome://prosthesis/content/dbg-styleeditor-actors.js');
     DebuggerServer.addTabActor(DebuggerServer.StyleEditorActor, "styleEditorActor");
-    if (window.RDP_CONNECT_TO) {
-      let host = window.RDP_CONNECT_TO["host"];
-      let port = window.RDP_CONNECT_TO["port"];
 
-      debug("RDP CONNECT TO "+host+":"+port+"\n");
-
-      try {
-        DebuggerServer.connectToTCPServer(host, port);
-      } catch(e) {
-        debug("EXCEPTION ON RDP CONNECT: "+e+" "+e.fileName+":"+e.lineNumber+"\n");
-      }
+    // NOTE: if window.RDPConnectTo helper exists, use it to connect to a remote
+    // client waiting on a tcp port.
+    if (window.RDPConnectTo) {
+      window.RDPConnectTo();
     }
   };
 

@@ -209,6 +209,8 @@ const RemoteSimulatorClient = Class({
     });
 
     this._startConnectingTime = Date.now();
+    // NOTE: disabled, this branch receive connections on a debugger client
+    // server socket listener
     //this.connectDebuggerClient();
   },
 

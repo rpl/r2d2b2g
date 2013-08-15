@@ -227,7 +227,6 @@ const RemoteSimulatorClient = Class({
     let client = new DebuggerClient(transport);
 
     client.addListener("closed", (function () {
-      clearTimeout(timeout);
       this._stopGeolocation();
       emit(this, "clientClosed", {client: client});
     }).bind(this));
